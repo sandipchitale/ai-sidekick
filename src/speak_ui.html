@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI</title>
+    <style>
+      :root {
+        --bg-color: #ffffff;
+        --text-color: #202124;
+        --accent-color: #1a73e8;
+        --border-color: #dadce0;
+        --hover-color: #f1f3f4;
+        --danger-color: #d93025;
+        --font-stack:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg-color: #202124;
+          --text-color: #e8eaed;
+          --accent-color: #8ab4f8;
+          --border-color: #3c4043;
+          --hover-color: #303134;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+        font-family: var(--font-stack);
+      }
+
+      body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-color);
+        overflow: hidden;
+        position: relative;
+        transition:
+          border-color 0.3s ease,
+          box-shadow 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .container.speaking {
+        animation: techno-pulse 6s infinite alternate;
+      }
+
+      @keyframes techno-pulse {
+        0% {
+          box-shadow:
+            0 0 20px rgba(26, 115, 232, 0.6),
+            0 0 40px rgba(26, 115, 232, 0.3);
+          border-color: var(--accent-color);
+        }
+        33% {
+          box-shadow:
+            0 0 30px rgba(161, 66, 244, 0.7),
+            0 0 50px rgba(161, 66, 244, 0.4);
+          border-color: #a142f4;
+        }
+        66% {
+          box-shadow:
+            0 0 20px rgba(52, 168, 83, 0.6),
+            0 0 40px rgba(52, 168, 83, 0.3);
+          border-color: #34a853;
+        }
+        100% {
+          box-shadow:
+            0 0 35px rgba(241, 158, 56, 0.7),
+            0 0 60px rgba(241, 158, 56, 0.4);
+          border-color: #f19e38;
+        }
+      }
+
+      textarea {
+        flex: 1;
+        width: 100%;
+        border: none;
+        padding: 24px;
+        background: transparent;
+        color: var(--text-color);
+        font-size: 16px;
+        line-height: 1.6;
+        resize: none;
+        outline: none;
+        font-family: inherit;
+      }
+
+      .bottom-bar {
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        border-top: 1px solid var(--border-color);
+        background: var(--hover-color);
+        gap: 16px;
+      }
+
+      .status-area {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+      }
+
+      .visualizer {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        height: 24px;
+      }
+
+      .bar {
+        width: 3px;
+        height: 6px;
+        background: var(--accent-color);
+        border-radius: 1px;
+        transition: height 0.1s ease;
+      }
+
+      .bar.animating {
+        animation: bounce 0.6s infinite alternate;
+      }
+
+      @keyframes bounce {
+        from {
+          height: 6px;
+          opacity: 0.4;
+        }
+        to {
+          height: 20px;
+          opacity: 1;
+        }
+      }
+
+      #status {
+        font-size: 13px;
+        color: var(--accent-color);
+        font-weight: 500;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+      }
+
+      button {
+        border: 1px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 38px;
+        padding: 0 18px;
+      }
+
+      #play-btn {
+        background: var(--accent-color);
+        color: #fff;
+      }
+
+      #play-btn:hover:not(:disabled) {
+        filter: brightness(1.1);
+        transform: scale(1.02);
+      }
+
+      #play-btn:disabled {
+        background: var(--border-color);
+        color: #80868b;
+        cursor: not-allowed;
+      }
+
+      #exit-btn {
+        background: transparent;
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+      }
+
+      #exit-btn:hover {
+        background: var(--border-color);
+      }
+
+      #refresh-btn {
+        background: var(--danger-color);
+        color: white;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" id="main-container">
+      <textarea
+        id="output-text"
+        readonly
+        placeholder="Speech content will appear here..."
+      ></textarea>
+
+      <div class="bottom-bar">
+        <div class="status-area">
+          <div class="visualizer" id="visualizer">
+            <div class="bar" style="animation-delay: 0s"></div>
+            <div class="bar" style="animation-delay: 0.1s"></div>
+            <div class="bar" style="animation-delay: 0.2s"></div>
+            <div class="bar" style="animation-delay: 0.3s"></div>
+            <div class="bar" style="animation-delay: 0.4s"></div>
+          </div>
+          <div id="status">Initializing...</div>
+        </div>
+        <div class="actions">
+          <button id="refresh-btn">Fix Voices</button>
+          <button id="play-btn">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Play
+          </button>
+          <button id="exit-btn">Stop & Exit</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const container = document.getElementById("main-container");
+      const textarea = document.getElementById("output-text");
+      const playBtn = document.getElementById("play-btn");
+      const exitBtn = document.getElementById("exit-btn");
+      const refreshBtn = document.getElementById("refresh-btn");
+      const status = document.getElementById("status");
+      const bars = document.querySelectorAll(".bar");
+
+      let text = "";
+      // Replacement target for speak.ts
+      // let text = "";
+
+      if (!text && window.location.hash) {
+        text = decodeURIComponent(window.location.hash.substring(1));
+      }
+      if (text) textarea.value = text;
+
+      const synth = window.speechSynthesis;
+      let currentUtterance = null; // Prevent garbage collection
+      let hasStarted = false;
+
+      function cleanup() {
+        synth.cancel();
+        if (window.onClose) window.onClose();
+      }
+
+      exitBtn.onclick = cleanup;
+
+      refreshBtn.onclick = () => {
+        console.log("Forcing voice reload...");
+        synth.cancel();
+        location.reload();
+      };
+
+      playBtn.onclick = () => {
+        console.log("Manual play requested");
+        hasStarted = false;
+        startSpeaking();
+      };
+
+      function startSpeaking() {
+        if (hasStarted || !text) return;
+
+        const voices = synth.getVoices();
+        if (voices.length === 0) {
+          console.log("No voices yet, waiting...");
+          status.textContent = "Waiting for system voices...";
+          return;
+        }
+
+        hasStarted = true;
+        playBtn.disabled = true;
+        refreshBtn.style.display = "none";
+        status.textContent = "Speaking...";
+
+        synth.cancel();
+
+        currentUtterance = new SpeechSynthesisUtterance(text);
+
+        // Priority: English voices
+        const voice =
+          voices.find((v) => v.lang === "en-US") ||
+          voices.find((v) => v.lang.startsWith("en-US")) ||
+          voices.find((v) => v.lang.startsWith("en")) ||
+          voices[0];
+
+        if (voice) {
+          currentUtterance.voice = voice;
+          console.log("Voice selected:", voice.name);
+        }
+
+        currentUtterance.onstart = () => {
+          console.log("Speech started");
+          container.classList.add("speaking");
+          bars.forEach((b) => b.classList.add("animating"));
+        };
+
+        currentUtterance.onend = () => {
+          console.log("Speech ended");
+          container.classList.remove("speaking");
+          bars.forEach((b) => b.classList.remove("animating"));
+          status.textContent =
+            "Finished. Press Escape or 'Stop & Exit' to close.";
+          playBtn.disabled = false;
+          hasStarted = false;
+        };
+
+        currentUtterance.onerror = (e) => {
+          console.error("Speech error:", e.error, e);
+          container.classList.remove("speaking");
+          status.textContent = "Error: " + e.error;
+          playBtn.disabled = false;
+          hasStarted = false;
+        };
+
+        // Single direct call
+        synth.speak(currentUtterance);
+      }
+
+      // Global key listener for Escape
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          cleanup();
+        }
+      });
+
+      // Use window.name to track reloads without persistent storage
+      const RELOAD_FLAG = "ai-sidekick-reloaded";
+      const isReloaded = window.name.includes(RELOAD_FLAG);
+
+      function start() {
+        const voices = synth.getVoices();
+        if (voices.length > 0) {
+          console.log("Voices available, starting speech.");
+          startSpeaking();
+          return true;
+        }
+        return false;
+      }
+
+      // Attempt to wake up the engine with a dummy utterance
+      function wakeUp() {
+        console.log("Nudging synthesis engine...");
+        const dummy = new SpeechSynthesisUtterance("");
+        dummy.volume = 0;
+        synth.speak(dummy);
+        synth.cancel();
+      }
+
+      // Initialization logic
+      (async () => {
+        // Initial nudge
+        wakeUp();
+
+        // Wait a bit for voices to populate
+        for (let i = 0; i < 10; i++) {
+          if (start()) return;
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // If still no voices and we haven't reloaded yet, try one auto-reload
+        if (!isReloaded) {
+          console.log("No voices detected. Attempting one-time auto-reload...");
+          window.name += RELOAD_FLAG;
+          location.reload();
+          return;
+        }
+
+        // After reload, continue polling for a few more seconds
+        const pollInterval = setInterval(() => {
+          if (start()) {
+            clearInterval(pollInterval);
+          }
+        }, 100);
+
+        // Show manual fix button after 5 total seconds of failure
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (synth.getVoices().length === 0) {
+            refreshBtn.style.display = "flex";
+            status.textContent = "Voices still missing. Try 'Fix Voices' or check system settings.";
+          }
+        }, 5000);
+      })();
+
+      if (synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = () => {
+          console.log("onvoiceschanged fired");
+          start();
+        };
+      }
+
+      status.textContent = "Ready...";
+    </script>
+  </body>
+</html>

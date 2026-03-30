@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Prompt</title>
+    <title>Type or dictate</title>
     <style>
       :root {
         --bg-color: #ffffff;
@@ -67,7 +67,9 @@
         box-shadow: var(--shadow);
         overflow: hidden;
         position: relative;
-        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        transition:
+          border-color 0.3s ease,
+          box-shadow 0.3s ease;
       }
 
       .container.listening {
@@ -238,7 +240,7 @@
     </style>
   </head>
   <body>
-    <div class="header">Prompt (try dictation):</div>
+    <div class="header">Type or dictate:</div>
     <div class="container">
       <textarea
         id="prompt-input"
@@ -250,7 +252,11 @@
       </div>
       <div class="bottom-bar">
         <div class="status-area">
-          <button id="dictate-btn" title="Click to dictate">
+          <button
+            id="dictate-btn"
+            title="Click to dictate (Ctrl+R)"
+            tabindex="-1"
+          >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path
                 d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"
@@ -264,7 +270,7 @@
         </div>
         <div class="actions">
           <button id="cancel-btn">Cancel</button>
-          <button id="send-btn">Send</button>
+          <button id="send-btn">Text</button>
         </div>
       </div>
     </div>
@@ -276,10 +282,6 @@
       const dictateBtn = document.getElementById("dictate-btn");
       const status = document.getElementById("status");
       const container = document.querySelector(".container");
-
-      if (window.location.hash) {
-        input.value = decodeURIComponent(window.location.hash.substring(1));
-      }
 
       function submit() {
         const text = input.value.trim();
@@ -307,6 +309,49 @@
         }
       };
 
+      let inputTimeout;
+
+      function processInput(smartCursorMovement = false) {
+        const oldValue = input.value;
+        let newValue = "";
+        let lastIndex = 0;
+        let lastReplacementEnd = -1;
+
+        const masterRegex =
+          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)/gi;
+
+        let match;
+        while ((match = masterRegex.exec(oldValue)) !== null) {
+          newValue += oldValue.substring(lastIndex, match.index);
+
+          let sub = "";
+          if (match[1]) sub = ", ";
+          else if (match[2]) sub = ". ";
+          else if (match[3]) sub = "? ";
+          else if (match[4]) sub = "! ";
+          else if (match[5]) sub = "\t";
+          else if (match[6]) sub = match[7] + "\n\n";
+          else if (match[8]) sub = ".\n\n";
+
+          newValue += sub;
+          lastIndex = masterRegex.lastIndex;
+          lastReplacementEnd = newValue.length;
+        }
+        newValue += oldValue.substring(lastIndex);
+
+        if (oldValue !== newValue) {
+          input.value = newValue;
+          if (smartCursorMovement && lastReplacementEnd !== -1) {
+            input.setSelectionRange(lastReplacementEnd, lastReplacementEnd);
+          }
+        }
+      }
+
+      input.oninput = () => {
+        clearTimeout(inputTimeout);
+        inputTimeout = setTimeout(processInput, 500);
+      };
+
       const SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -316,11 +361,24 @@
 
         let isRecording = false;
 
-        dictateBtn.onclick = () => {
+        const toggleDictation = () => {
           if (isRecording) {
             recognition.stop();
           } else {
             recognition.start();
+          }
+        };
+
+        dictateBtn.onmousedown = (e) => {
+          e.preventDefault(); // Prevent focus loss from input
+        };
+
+        dictateBtn.onclick = toggleDictation;
+
+        window.onkeydown = (e) => {
+          if (e.ctrlKey && e.key === "r") {
+            e.preventDefault();
+            toggleDictation();
           }
         };
 
@@ -346,7 +404,10 @@
             }
           }
           if (finalTranscript) {
-            input.value += finalTranscript;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            input.setRangeText(finalTranscript, start, end, "end");
+            processInput(true);
           }
         };
 
@@ -360,6 +421,34 @@
       } else {
         dictateBtn.style.display = "none";
       }
+
+      // Initialization logic
+      (async () => {
+        if (window.getInitialText) {
+          const initialText = await window.getInitialText();
+          if (initialText) {
+            input.value = initialText;
+            processInput(false);
+          }
+        } else if (window.location.hash) {
+          input.value = decodeURIComponent(window.location.hash.substring(1));
+          processInput(false);
+        }
+
+        if (window.getInitialTitle) {
+          const initialTitle = await window.getInitialTitle();
+          if (initialTitle) {
+            document.title = initialTitle;
+          }
+        }
+
+        if (window.getInitialActionLabel) {
+          const initialActionLabel = await window.getInitialActionLabel();
+          if (initialActionLabel) {
+            sendBtn.textContent = initialActionLabel;
+          }
+        }
+      })();
 
       input.focus();
     </script>

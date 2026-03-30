@@ -23,7 +23,7 @@ The project consists of three core components:
    - Centralizes Chrome launching and Puppeteer connection logic.
    - Provides consistent browser flags for a clean "App Mode" experience.
    - Manages user data directories and port availability checks.
-   - Used by `agent.ts`, `prompt.ts`, and `speak.ts`.
+   - Used by `agent.ts`, `stt.ts`, and `tts.ts`.
 
 3. **`ai_shell_setup.zsh`** - A shell integration script that:
    - Launches the agent as a background process running indefinitely and connected via named pipes (`/tmp/ai_pipe_in.$$`, `/tmp/ai_pipe_out.$$`).
@@ -118,9 +118,9 @@ Use `aiui` to launch a modern GUI prompt dialog. This browser-based window featu
 
 #### The `speak` Tool
 
-The AI can now "talk" using a high-fidelity browser-based Text-to-Speech (TTS) engine, implemented via `src/speak.ts` and `src/speak_ui.html`.
+The AI can now "talk" using a high-fidelity browser-based Text-to-Speech (TTS) engine, implemented via `src/tts.ts` and `src/tts_ui.html`.
 
-- **Implementation:** `src/speak.ts` uses `chrome-launcher` and `puppeteer-core` (via `chrome-sidekick.ts`) to launch a dedicated Chrome "App Mode" instance that loads `src/speak_ui.html` and injects the text via the Web Speech API.
+- **Implementation:** `src/tts.ts` uses `chrome-launcher` and `puppeteer-core` (via `chrome-sidekick.ts`) to launch a dedicated Chrome "App Mode" instance that loads `src/tts_ui.html` and injects the text via the Web Speech API.
 - **Visual Feedback:** Shows a large window with the text being spoken and an animated voice visualizer.
 - **Modern UI:** Features a pulsating, multi-color techno shadow that glows while the AI is speaking.
 - **Automatic Voice Fix:** Includes intelligent initialization logic that automatically nudges the browser's speech engine and performs a one-time auto-reload if voices are missing, ensuring speech starts instantly and reliably.

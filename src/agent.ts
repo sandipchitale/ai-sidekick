@@ -132,9 +132,8 @@ const speak = new FunctionTool({
                 textToSpeak = textToSpeak.trim().replace(/^\./, '').replace(/\.\.$/, '');
                 // Escape single quotes for shell command
                 const escapedText = textToSpeak.replace(/'/g, "'\\''");
-                // speak.ts is in src/speak.ts
-                const speakScriptPath = path.resolve(PWD, 'speak.ts');
-                const { stdout, stderr } = await execPromise(`node "${speakScriptPath}" '${escapedText}'`);
+                const ttsScriptPath = path.resolve(PWD, 'tts.ts');
+                const { stdout, stderr } = await execPromise(`node '${ttsScriptPath}' '${escapedText}'`);
                 return { stdout, stderr };
             } catch (e: any) {
                 return { error: e.message, stderr: e.stderr };

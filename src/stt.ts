@@ -4,34 +4,45 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Browser } from 'puppeteer-core';
 import * as ChromeLauncher from 'chrome-launcher';
+import { program } from 'commander';
 import { launchChrome, connectToChrome } from './chrome-sidekick.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function main() {
-  const defaultText = process.argv.slice(2).join(' ') || '';
-  const uiPath = path.resolve(__dirname, 'prompt_ui.html');
-  const url = `file://${uiPath}#${encodeURIComponent(defaultText)}`;
+  program
+    .name('stt')
+    .description('Speech to Text GUI')
+    .version('1.0.0')
+    .option('--title <title>', 'Title of the page', 'Type or dictate')
+    .option('--action <label>', 'Label for the complete button', 'Send')
+    .argument('[text...]', 'Initial text')
+    .helpOption('-h, --help', 'Display help for command')
+    .parse(process.argv);
+
+  const options = program.opts();
+  const initialText = (program.args || []).join(' ');
+
+  const uiPath = path.resolve(__dirname, 'stt_ui.html');
+  const url = `file://${uiPath}`;
+  const tempDir = path.join(tmpdir(), `ai-sidekick-prompt-${Date.now()}`);
+  mkdirSync(tempDir, { recursive: true });
 
   let chrome: ChromeLauncher.LaunchedChrome | undefined;
   let browser: Browser | undefined;
-  let tempDir: string | undefined;
 
   try {
-    // Unique profile = No "Restore Pages" warning
-    tempDir = path.join(tmpdir(), `ai-sidekick-prompt-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
-
     const userDataDir = path.join(tempDir, 'profile');
     mkdirSync(userDataDir, { recursive: true });
 
     // Launch Chrome in "app" mode for a clean window
     chrome = await launchChrome({
-      startingUrl: url,
+      startingUrl: 'about:blank',
       userDataDir,
       chromeFlags: [
         `--app=${url}`,
         '--window-size=800,600',
+        '--allow-file-access-from-files'
       ],
     });
 
@@ -45,12 +56,27 @@ async function main() {
 
     // Safety: bypass the "allow microphone" popup
     const context = browser.defaultBrowserContext();
-    await context.setPermission(url.split('#')[0], { 
+    await context.setPermission(url, { 
       permission: { name: 'microphone' }, 
       state: 'granted' 
     } as any);
 
-    // Expose functions to the browser
+    async function cleanup() {
+        if (browser) await browser.disconnect();
+        if (chrome) await chrome.kill();
+        try {
+            rmSync(tempDir!, { recursive: true, force: true });
+        } catch (e) {}
+        process.exit(0);
+    }
+
+    // Provide initial data BEFORE navigation using evaluateOnNewDocument
+    await page.evaluateOnNewDocument((text, title, action) => {
+        (window as any).getInitialText = async () => text;
+        (window as any).getInitialTitle = async () => title;
+        (window as any).getInitialActionLabel = async () => action;
+    }, initialText, options.title, options.action);
+
     await page.exposeFunction('onComplete', (text: string) => {
       process.stdout.write(text + '\n');
       cleanup();
@@ -65,14 +91,8 @@ async function main() {
         cleanup();
     });
 
-    async function cleanup() {
-        if (browser) await browser.disconnect();
-        if (chrome) await chrome.kill();
-        try {
-            if (tempDir) rmSync(tempDir, { recursive: true, force: true });
-        } catch (e) {}
-        process.exit(0);
-    }
+    await page.goto(url);
+    await page.bringToFront();
 
     // Keep the process alive
     await new Promise(() => {});

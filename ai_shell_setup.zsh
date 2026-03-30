@@ -22,12 +22,12 @@ exec 3>"$_AI_PIPE_IN"   # unblocks agent's stdin
 exec 4<"$_AI_PIPE_OUT"  # unblocks agent's stdout
 
 aiui() {
-    you_said=$(node "$_AI_SCRIPT_DIR/src/prompt.ts")
+    you_said=$(node "$_AI_SCRIPT_DIR/src/prompt.ts" "$@")
     if [[ -z "$you_said" ]]; then
         return 1
     fi
     echo "$you_said"
-    ai "$1" "$you_said" "$2"
+    ai "$you_said"
 }
 
 airepl() {

@@ -9,7 +9,7 @@ import { launchChrome, connectToChrome } from './chrome-sidekick.ts';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function main() {
-  const defaultText = process.argv[2] || '';
+  const defaultText = process.argv.slice(2).join(' ') || '';
   const uiPath = path.resolve(__dirname, 'prompt_ui.html');
   const url = `file://${uiPath}#${encodeURIComponent(defaultText)}`;
 
@@ -40,7 +40,7 @@ async function main() {
     const [page] = await browser.pages();
     
     page.on('console', msg => {
-      console.log('PAGE:', msg.text());
+      // console.log('PAGE:', msg.text());
     });
 
     // Safety: bypass the "allow microphone" popup

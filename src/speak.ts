@@ -48,7 +48,7 @@ async function main() {
     const [page] = await browser.pages();
     
     page.on('console', msg => {
-        console.log('PAGE:', msg.text());
+        // console.log('PAGE:', msg.text());
     });
 
     await page.exposeFunction('onClose', () => {

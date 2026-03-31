@@ -283,6 +283,9 @@
       const status = document.getElementById("status");
       const container = document.querySelector(".container");
 
+      let isRecording = false;
+      let toggleDictation = () => {};
+
       function submit() {
         const text = input.value.trim();
         if (text && window.onComplete) {
@@ -305,7 +308,11 @@
           submit();
         }
         if (e.key === "Escape") {
-          cancel();
+          if (isRecording) {
+            toggleDictation();
+          } else {
+            cancel();
+          }
         }
       };
 
@@ -359,9 +366,7 @@
         recognition.continuous = true;
         recognition.interimResults = true;
 
-        let isRecording = false;
-
-        const toggleDictation = () => {
+        toggleDictation = () => {
           if (isRecording) {
             recognition.stop();
           } else {

@@ -23,6 +23,17 @@ async function main() {
   const options = program.opts();
   let textToSpeak = (program.args || []).join(' ');
 
+  // if (!process.stdin.isTTY) {
+  //   const chunks: Buffer[] = [];
+  //   for await (const chunk of process.stdin) {
+  //     chunks.push(chunk as Buffer);
+  //   }
+  //   const stdinText = Buffer.concat(chunks).toString('utf-8');
+  //   if (stdinText) {
+  //     textToSpeak = textToSpeak ? `${textToSpeak}\n${stdinText}` : stdinText;
+  //   }
+  // }
+
   const uiPath = path.resolve(__dirname, 'tts_ui.html');
   const url = `file://${uiPath}`;
   const tempDir = path.join(tmpdir(), `ai-sidekick-speak-${Date.now()}`);

@@ -295,7 +295,7 @@
         startSpeaking();
       };
 
-      stopBtn.onclick = () => {
+      function stopSpeaking() {
         console.log("Manual stop requested");
         synth.cancel();
         hasStarted = false;
@@ -304,7 +304,9 @@
         container.classList.remove("speaking");
         bars.forEach((b) => b.classList.remove("animating"));
         status.textContent = "Ready...";
-      };
+      }
+
+      stopBtn.onclick = stopSpeaking;
 
       function startSpeaking() {
         const textToSpeak = textarea.value.trim();
@@ -377,7 +379,11 @@
       // Global key listener for Escape
       window.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
-          cleanup();
+          if (hasStarted) {
+            stopSpeaking();
+          } else {
+            cleanup();
+          }
         }
       });
 

@@ -130,10 +130,18 @@ const speak = new FunctionTool({
                 // Use the browser-based TTS script
                 // Remove leading . or trailing .. if present
                 textToSpeak = textToSpeak.trim().replace(/^\./, '').replace(/\.\.$/, '');
-                // Escape single quotes for shell command
-                const escapedText = textToSpeak.replace(/'/g, "'\\''");
                 const ttsScriptPath = path.resolve(PWD, 'tts.ts');
-                const { stdout, stderr } = await execPromise(`node '${ttsScriptPath}' '${escapedText}'`);
+                const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+                    const cp = exec(`node '${ttsScriptPath}'`, (error, stdout, stderr) => {
+                        if (error) {
+                            reject(Object.assign(error, { stdout, stderr }));
+                        } else {
+                            resolve({ stdout, stderr });
+                        }
+                    });
+                    cp.stdin?.write(textToSpeak);
+                    cp.stdin?.end();
+                });
                 return { stdout, stderr };
             } catch (e: any) {
                 return { error: e.message, stderr: e.stderr };

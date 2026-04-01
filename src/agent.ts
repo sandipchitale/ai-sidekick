@@ -152,7 +152,19 @@ const speak = new FunctionTool({
 
 // Browser sidekick
 const REMOTE_PORT: number = 19224;
-const REMOTE_DEBUGGING_URL = `http://127.0.0.1:${REMOTE_PORT}`;
+const canvasSuffix = await fs.readFile(path.resolve(PWD, '..', 'canvas_suffix.md'), 'utf-8');
+const imageSuffix = await fs.readFile(path.resolve(PWD, '..', 'image_suffix.md'), 'utf-8');
+const videoSuffix = await fs.readFile(path.resolve(PWD, '..', 'video_suffix.md'), 'utf-8');
+const musicSuffix = await fs.readFile(path.resolve(PWD, '..', 'music_suffix.md'), 'utf-8');
+
+const TOOL_MAPPINGS = [
+    { tag: 'canvas', index: 2, label: 'canvas', suffix: canvasSuffix },
+    { tag: 'image', index: 1, label: 'image', suffix: imageSuffix },
+    { tag: 'video', index: 4, label: 'video', suffix: videoSuffix },
+    { tag: 'music', index: 5, label: 'music', suffix: musicSuffix },
+];
+
+let lastToolIndex: number | undefined = -1;
 
 async function ensureChromeLaunched() {
     if (await isPortAvailable(REMOTE_PORT)) {
@@ -206,23 +218,6 @@ async function ensureSession(sessionId: string) {
     await page.evaluate((sessionId) => {
         window.name = sessionId;
     }, sessionId);
-
-    // add code to enable the canvas tool
-    try {
-        const toolsToggleButton = await page.waitForSelector('toolbox-drawer button:first-of-type', { timeout: 10000 });
-        if (toolsToggleButton) {
-            await toolsToggleButton.click();
-            await delay(1000);
-            const canvasButton = await page.waitForSelector('toolbox-drawer-item:nth-of-type(2) button', { timeout: 5000 });
-            if (canvasButton) {
-                await canvasButton.click();
-            }
-        }
-        await delay(2000);
-    } catch (error) {
-        console.error('Error enabling canvas tool:', error);
-    }
-
 }
 
 // Finds a page for a given session
@@ -299,8 +294,6 @@ async function typeMultilineTextInPromptBox(page: Page, promptBox: ElementHandle
         sessionId: sessionId
     });
 
-    const geminiSuffix = await fs.readFile(path.resolve(PWD, '..', 'gemini_suffix.md'), 'utf-8');
-
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -346,25 +339,48 @@ async function typeMultilineTextInPromptBox(page: Page, promptBox: ElementHandle
             }
 
             // extract gemini prompt
-            const match = fullResponse.match(/```gemini\s+([\s\S]*?)```/);
-            if (match && match[1]) {
-                const geminiPrompt = match[1].trim();
-                if (geminiPrompt) {
-                    await ensureSession(sessionId);
-                    const page = await findPageForSession(sessionId);
-                    if (page) {
-                        const promptBox = await page.$('rich-textarea');
-                        if (promptBox) {
-                            await typeMultilineTextInPromptBox(page,
-                                promptBox,
-                                `${geminiPrompt}\n\n${geminiSuffix}`);
-                            await delay(1000);
-                            await page.keyboard.up('Enter');
-                            await page.keyboard.press('Enter');
+            // Processing browser tools
+            for (const tool of TOOL_MAPPINGS) {
+                const match = fullResponse.match(new RegExp('```' + tool.tag + '\\s+([\\s\\S]*?)```'));
+                if (match && match[1]) {
+                    const geminiPrompt = match[1].trim();
+                    if (geminiPrompt) {
+                        await ensureSession(sessionId);
+                        const page = await findPageForSession(sessionId);
+                        if (page) {
+                            // Change tool if needed
+                            if (lastToolIndex !== tool.index) {
+                                lastToolIndex = tool.index;
+                                // add code to enable the tool
+                                try {
+                                    const toolsToggleButton = await page.waitForSelector('toolbox-drawer button:first-of-type', { timeout: 10000 });
+                                    if (toolsToggleButton) {
+                                        await toolsToggleButton.click();
+                                        await delay(1000);
+                                        const toolButton = await page.waitForSelector(`toolbox-drawer-item:nth-of-type(${tool.index}) button`, { timeout: 5000 });
+                                        if (toolButton) {
+                                            await toolButton.click();
+                                        }
+                                    }
+                                    await delay(2000);
+                                } catch (error) {
+                                    console.error(`Error enabling ${tool.label} tool:`, error);
+                                }
+                            }
+                            const promptBox = await page.$('rich-textarea');
+                            if (promptBox) {
+                                await typeMultilineTextInPromptBox(page,
+                                    promptBox,
+                                    `${geminiPrompt}\n\n${tool.suffix}`);
+                                await delay(1000);
+                                await page.keyboard.up('Enter');
+                                await page.keyboard.press('Enter');
+                            }
                         }
                     }
+                    process.stdout.write(`\nThis has been sent to the browser sidekick.\n`);
+                    break; // Stop after processing the first matching tool
                 }
-                process.stdout.write(`\nThis has been sent to the browser sidekick.\n`);
             }
             process.stdout.write(`\n__AI_EOF__\n`);
         } else {

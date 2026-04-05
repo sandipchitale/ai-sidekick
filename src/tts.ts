@@ -63,8 +63,8 @@ async function main() {
 
     const [page] = await browser.pages();
     
-    page.on('console', msg => {
-        // console.log('PAGE:', msg.text());
+    page.on('console', _ => {
+        // console.log('PAGE:', _.text());
     });
 
     async function cleanup() {

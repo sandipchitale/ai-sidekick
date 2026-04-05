@@ -124,6 +124,7 @@ The AI can now "talk" using a high-fidelity browser-based Text-to-Speech (TTS) e
 - **Visual Feedback:** Shows a large window with the text being spoken and an animated voice visualizer.
 - **Modern UI:** Features a pulsating, multi-color techno shadow that glows while the AI is speaking.
 - **Automatic Voice Fix:** Includes intelligent initialization logic that automatically nudges the browser's speech engine and performs a one-time auto-reload if voices are missing, ensuring speech starts instantly and reliably.
+- **Punctuations:** Adds punctuations using 'insert period', 'insert comma', 'insert question mark', 'insert exclamation', 'new paragraph'. Use 'select all' to select all text.
 
 ![UI Speak](screenshots/speak.png)
 

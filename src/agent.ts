@@ -13,7 +13,7 @@ import { delay, isPortAvailable, launchChrome, connectToChrome } from "./chrome-
 
 setLogLevel(LogLevel.WARN);
 
-// Promisify exec - I can't belive I have to write this in 2026
+// Promisify exec - I can't believe I have to write this in 2026
 const execPromise = promisify(exec);
 
 process.on('SIGINT', () => {

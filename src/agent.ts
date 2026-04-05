@@ -152,19 +152,6 @@ const speak = new FunctionTool({
 
 // Browser sidekick
 const REMOTE_PORT: number = 19224;
-const canvasSuffix = await fs.readFile(path.resolve(PWD, '..', 'canvas_suffix.md'), 'utf-8');
-const imageSuffix = await fs.readFile(path.resolve(PWD, '..', 'image_suffix.md'), 'utf-8');
-const videoSuffix = await fs.readFile(path.resolve(PWD, '..', 'video_suffix.md'), 'utf-8');
-const musicSuffix = await fs.readFile(path.resolve(PWD, '..', 'music_suffix.md'), 'utf-8');
-
-const TOOL_MAPPINGS = [
-    { tag: 'canvas', index: 2, label: 'canvas', suffix: canvasSuffix },
-    { tag: 'image', index: 1, label: 'image', suffix: imageSuffix },
-    { tag: 'video', index: 4, label: 'video', suffix: videoSuffix },
-    { tag: 'music', index: 5, label: 'music', suffix: musicSuffix },
-];
-
-let lastToolIndex: number | undefined = -1;
 
 async function ensureChromeLaunched() {
     if (await isPortAvailable(REMOTE_PORT)) {
@@ -172,7 +159,7 @@ async function ensureChromeLaunched() {
             port: REMOTE_PORT,
             chromeFlags: [
                 '--new-window',
-                '--disable-blink-features=AutomationControlled',
+                // '--disable-blink-features=AutomationControlled',
                 '--password-store=basic',
                 '--use-mock-keychain',
             ]
@@ -262,6 +249,19 @@ async function typeMultilineTextInPromptBox(page: Page, promptBox: ElementHandle
 }
 
 (async () => {
+    const canvasSuffix = await fs.readFile(path.resolve(PWD, '..', 'canvas_suffix.md'), 'utf-8');
+    const imageSuffix = await fs.readFile(path.resolve(PWD, '..', 'image_suffix.md'), 'utf-8');
+    const videoSuffix = await fs.readFile(path.resolve(PWD, '..', 'video_suffix.md'), 'utf-8');
+    const musicSuffix = await fs.readFile(path.resolve(PWD, '..', 'music_suffix.md'), 'utf-8');
+
+    const TOOL_MAPPINGS = [
+        { tag: 'canvas', index: 2, label: 'canvas', suffix: canvasSuffix },
+        { tag: 'image', index: 1, label: 'image', suffix: imageSuffix },
+        { tag: 'video', index: 4, label: 'video', suffix: videoSuffix },
+        { tag: 'music', index: 5, label: 'music', suffix: musicSuffix },
+    ];
+
+    let lastToolIndex: number | undefined = -1;
     const model = process.env.MODEL!;
 
     const rootAgent = new LlmAgent({

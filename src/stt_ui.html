@@ -325,7 +325,7 @@
         let lastReplacementEnd = -1;
 
         const masterRegex =
-          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)/gi;
+          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)/gi;
 
         let match;
         while ((match = masterRegex.exec(oldValue)) !== null) {
@@ -339,6 +339,13 @@
           else if (match[5]) sub = "\t";
           else if (match[6]) sub = match[7] + "\n\n";
           else if (match[8]) sub = ".\n\n";
+          else if (match[9]) sub = // select all text in prompt-input
+            (() => {
+              setTimeout(() => {
+                input.select();
+              }, 0);
+              return "";
+            })();
 
           newValue += sub;
           lastIndex = masterRegex.lastIndex;
@@ -359,10 +366,10 @@
         inputTimeout = setTimeout(processInput, 500);
       };
 
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
+      const speechRecognition =
+        window['SpeechRecognition'] || window['webkitSpeechRecognition'];
+      if (speechRecognition) {
+        const recognition = new speechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
 

@@ -63,7 +63,7 @@ async function main() {
 
     async function cleanup() {
         if (browser) await browser.disconnect();
-        if (chrome) await chrome.kill();
+        if (chrome) chrome.kill();
         try {
             rmSync(tempDir!, { recursive: true, force: true });
         } catch (e) {}
@@ -99,9 +99,9 @@ async function main() {
 
   } catch (err) {
     console.error('Failed to launch prompt:', err);
-    if (chrome) await chrome.kill();
+    if (chrome) chrome.kill();
     process.exit(1);
   }
 }
 
-main();
+await main();

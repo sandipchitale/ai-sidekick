@@ -69,7 +69,7 @@ async function main() {
 
     async function cleanup() {
         if (browser) await browser.close(); // Graceful Puppeteer close
-        if (chrome) await chrome.kill();
+        if (chrome) chrome.kill();
         try {
             rmSync(tempDir, { recursive: true, force: true });
         } catch (e) {}
@@ -100,7 +100,7 @@ async function main() {
 
   } catch (err) {
     console.error('Failed to launch speaker:', err);
-    if (chrome) await chrome.kill();
+    if (chrome) chrome.kill();
     try {
         rmSync(tempDir, { recursive: true, force: true });
     } catch (e) {}
@@ -108,4 +108,4 @@ async function main() {
   }
 }
 
-main();
+await main();

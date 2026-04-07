@@ -325,7 +325,7 @@
         let lastReplacementEnd = -1;
 
         const masterRegex =
-          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)/gi;
+          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)/gi;
 
         let match;
         while ((match = masterRegex.exec(oldValue)) !== null) {
@@ -363,6 +363,18 @@
               }, 0);
               return "";
             })();
+          } else if (match[12]) {
+            // unselect selection — collapse selection to cursor position
+            sub = (() => {
+              setTimeout(() => {
+                const pos = input.selectionStart;
+                input.setSelectionRange(pos, pos);
+              }, 0);
+              return "";
+            })();
+          } else if (match[13]) {
+            // delete selection — handled in onresult, just strip here
+            sub = "";
           }
 
           newValue += sub;
@@ -436,22 +448,31 @@
           if (finalTranscript) {
             const start = input.selectionStart;
             const end = input.selectionEnd;
+            // "delete selection" — delete selected text before inserting
+            // the transcript, since the selection state is lost after insertion.
+            const deleteSelectionRegex = /\s+delete\s+selection/gi;
+            if (start !== end && deleteSelectionRegex.test(finalTranscript)) {
+              input.setRangeText("", start, end, "end");
+            }
+            // Re-read positions after potential deletion
+            const insertStart = input.selectionStart;
+            const insertEnd = input.selectionEnd;
             // If there's a selection and the transcript is purely commands
             // (no real text), insert at the end of the selection instead of
             // replacing it — commands should not destroy selected text.
-            if (start !== end) {
+            if (insertStart !== insertEnd) {
               const commandRegex =
-                /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)/gi;
+                /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)/gi;
               const stripped = finalTranscript.replace(commandRegex, "");
               if (stripped.trim() === "") {
                 // Pure commands: append without replacing selection
-                input.setRangeText(finalTranscript, end, end, "end");
+                input.setRangeText(finalTranscript, insertEnd, insertEnd, "end");
               } else {
                 // Contains real text: replace selection as normal
-                input.setRangeText(finalTranscript, start, end, "end");
+                input.setRangeText(finalTranscript, insertStart, insertEnd, "end");
               }
             } else {
-              input.setRangeText(finalTranscript, start, end, "end");
+              input.setRangeText(finalTranscript, insertStart, insertEnd, "end");
             }
             processInput(true);
           }

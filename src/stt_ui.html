@@ -325,7 +325,7 @@
         let lastReplacementEnd = -1;
 
         const masterRegex =
-          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)/gi;
+          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)/gi;
 
         let match;
         while ((match = masterRegex.exec(oldValue)) !== null) {
@@ -339,13 +339,31 @@
           else if (match[5]) sub = "\t";
           else if (match[6]) sub = match[7] + "\n\n";
           else if (match[8]) sub = ".\n\n";
-          else if (match[9]) sub = // select all text in prompt-input
-            (() => {
+          else if (match[9]) {
+            // select all text in prompt-input
+            sub = (() => {
+                      setTimeout(() => {
+                        input.select();
+                      }, 0);
+                      return "";
+                    })()
+          } else if (match[10]) {
+            // go to the beginning of the prompt-input
+            sub = (() => {
               setTimeout(() => {
-                input.select();
+                input.setSelectionRange(0, 0);
               }, 0);
               return "";
             })();
+          } else if (match[11]) {
+            // go to the end of the prompt-input
+            sub = (() => {
+              setTimeout(() => {
+                input.setSelectionRange(input.value.length, input.value.length);
+              }, 0);
+              return "";
+            })();
+          }
 
           newValue += sub;
           lastIndex = masterRegex.lastIndex;
@@ -418,7 +436,23 @@
           if (finalTranscript) {
             const start = input.selectionStart;
             const end = input.selectionEnd;
-            input.setRangeText(finalTranscript, start, end, "end");
+            // If there's a selection and the transcript is purely commands
+            // (no real text), insert at the end of the selection instead of
+            // replacing it — commands should not destroy selected text.
+            if (start !== end) {
+              const commandRegex =
+                /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)/gi;
+              const stripped = finalTranscript.replace(commandRegex, "");
+              if (stripped.trim() === "") {
+                // Pure commands: append without replacing selection
+                input.setRangeText(finalTranscript, end, end, "end");
+              } else {
+                // Contains real text: replace selection as normal
+                input.setRangeText(finalTranscript, start, end, "end");
+              }
+            } else {
+              input.setRangeText(finalTranscript, start, end, "end");
+            }
             processInput(true);
           }
         };

@@ -318,76 +318,69 @@
 
       let inputTimeout;
 
-      function processInput(smartCursorMovement = false) {
-        const oldValue = input.value;
-        let newValue = "";
+      const COMMAND_REGEX =
+        /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)/gi;
+
+      function extractCommands(text) {
+        const regex = new RegExp(COMMAND_REGEX.source, COMMAND_REGEX.flags);
+        let processedText = "";
         let lastIndex = 0;
         let lastReplacementEnd = -1;
-
-        const masterRegex =
-          /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)/gi;
-
+        let hasRealText = false;
+        let hasTextOutput = false;
+        const effects = [];
+        let deletesSelection = false;
         let match;
-        while ((match = masterRegex.exec(oldValue)) !== null) {
-          newValue += oldValue.substring(lastIndex, match.index);
+
+        while ((match = regex.exec(text)) !== null) {
+          const before = text.substring(lastIndex, match.index);
+          processedText += before;
+          if (before.trim()) hasRealText = true;
 
           let sub = "";
-          if (match[1]) sub = ", ";
-          else if (match[2]) sub = ". ";
-          else if (match[3]) sub = "? ";
-          else if (match[4]) sub = "! ";
-          else if (match[5]) sub = "\t";
-          else if (match[6]) sub = match[7] + "\n\n";
-          else if (match[8]) sub = ".\n\n";
-          else if (match[9]) {
-            // select all text in prompt-input
-            sub = (() => {
-                      setTimeout(() => {
-                        input.select();
-                      }, 0);
-                      return "";
-                    })()
-          } else if (match[10]) {
-            // go to the beginning of the prompt-input
-            sub = (() => {
-              setTimeout(() => {
-                input.setSelectionRange(0, 0);
-              }, 0);
-              return "";
-            })();
-          } else if (match[11]) {
-            // go to the end of the prompt-input
-            sub = (() => {
-              setTimeout(() => {
-                input.setSelectionRange(input.value.length, input.value.length);
-              }, 0);
-              return "";
-            })();
-          } else if (match[12]) {
-            // unselect selection — collapse selection to cursor position
-            sub = (() => {
-              setTimeout(() => {
-                const pos = input.selectionStart;
-                input.setSelectionRange(pos, pos);
-              }, 0);
-              return "";
-            })();
-          } else if (match[13]) {
-            // delete selection — handled in onresult, just strip here
-            sub = "";
-          }
+          if (match[1]) { sub = ", "; hasTextOutput = true; }
+          else if (match[2]) { sub = ". "; hasTextOutput = true; }
+          else if (match[3]) { sub = "? "; hasTextOutput = true; }
+          else if (match[4]) { sub = "! "; hasTextOutput = true; }
+          else if (match[5]) { sub = "\t"; hasTextOutput = true; }
+          else if (match[6]) { sub = match[7] + "\n\n"; hasTextOutput = true; }
+          else if (match[8]) { sub = ".\n\n"; hasTextOutput = true; }
+          else if (match[9]) { effects.push(() => input.select()); }
+          else if (match[10]) { effects.push(() => input.setSelectionRange(0, 0)); }
+          else if (match[11]) { effects.push(() => input.setSelectionRange(input.value.length, input.value.length)); }
+          else if (match[12]) { effects.push(() => { const pos = input.selectionStart; input.setSelectionRange(pos, pos); }); }
+          else if (match[13]) { deletesSelection = true; }
 
-          newValue += sub;
-          lastIndex = masterRegex.lastIndex;
-          lastReplacementEnd = newValue.length;
+          processedText += sub;
+          lastIndex = regex.lastIndex;
+          lastReplacementEnd = processedText.length;
         }
-        newValue += oldValue.substring(lastIndex);
 
-        if (oldValue !== newValue) {
-          input.value = newValue;
+        const remaining = text.substring(lastIndex);
+        processedText += remaining;
+        if (remaining.trim()) hasRealText = true;
+
+        return {
+          processedText,
+          replaceSelection: hasRealText || hasTextOutput,
+          effects,
+          deletesSelection,
+          lastReplacementEnd,
+        };
+      }
+
+      function processInput(smartCursorMovement = false) {
+        const oldValue = input.value;
+        const { processedText, effects, lastReplacementEnd } = extractCommands(oldValue);
+
+        if (oldValue !== processedText) {
+          input.value = processedText;
           if (smartCursorMovement && lastReplacementEnd !== -1) {
             input.setSelectionRange(lastReplacementEnd, lastReplacementEnd);
           }
+        }
+        if (effects.length) {
+          setTimeout(() => effects.forEach(fn => fn()), 0);
         }
       }
 
@@ -446,35 +439,31 @@
             }
           }
           if (finalTranscript) {
+            const { processedText, replaceSelection, effects, deletesSelection } =
+              extractCommands(finalTranscript);
             const start = input.selectionStart;
             const end = input.selectionEnd;
-            // "delete selection" — delete selected text before inserting
-            // the transcript, since the selection state is lost after insertion.
-            const deleteSelectionRegex = /\s+delete\s+selection/gi;
-            if (start !== end && deleteSelectionRegex.test(finalTranscript)) {
+            const hasSelection = start !== end;
+
+            // Delete selected text first (before insertion changes positions)
+            if (hasSelection && deletesSelection) {
               input.setRangeText("", start, end, "end");
             }
-            // Re-read positions after potential deletion
-            const insertStart = input.selectionStart;
+
+            const insertPos = input.selectionStart;
             const insertEnd = input.selectionEnd;
-            // If there's a selection and the transcript is purely commands
-            // (no real text), insert at the end of the selection instead of
-            // replacing it — commands should not destroy selected text.
-            if (insertStart !== insertEnd) {
-              const commandRegex =
-                /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)/gi;
-              const stripped = finalTranscript.replace(commandRegex, "");
-              if (stripped.trim() === "") {
-                // Pure commands: append without replacing selection
-                input.setRangeText(finalTranscript, insertEnd, insertEnd, "end");
-              } else {
-                // Contains real text: replace selection as normal
-                input.setRangeText(finalTranscript, insertStart, insertEnd, "end");
-              }
+
+            if (insertPos !== insertEnd && !replaceSelection) {
+              // Effect-only commands: append after selection, preserve it
+              input.setRangeText(processedText, insertEnd, insertEnd, "end");
             } else {
-              input.setRangeText(finalTranscript, insertStart, insertEnd, "end");
+              // Real text or text-producing commands: replace selection
+              input.setRangeText(processedText, insertPos, insertEnd, "end");
             }
-            processInput(true);
+
+            if (effects.length) {
+              setTimeout(() => effects.forEach(fn => fn()), 0);
+            }
           }
         };
 

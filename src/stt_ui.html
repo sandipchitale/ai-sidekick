@@ -319,17 +319,17 @@
       let inputTimeout;
 
       const COMMAND_REGEX =
-        /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)/gi;
+        /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)|(\s+undo\s+it)|(\s+redo\s+it)/gi;
 
       function extractCommands(text) {
         const regex = new RegExp(COMMAND_REGEX.source, COMMAND_REGEX.flags);
         let processedText = "";
-        let lastIndex = 0;
-        let lastReplacementEnd = -1;
         let hasRealText = false;
         let hasTextOutput = false;
         const effects = [];
+        const replacements = [];
         let deletesSelection = false;
+        let lastIndex = 0;
         let match;
 
         while ((match = regex.exec(text)) !== null) {
@@ -350,41 +350,55 @@
           else if (match[11]) { effects.push(() => input.setSelectionRange(input.value.length, input.value.length)); }
           else if (match[12]) { effects.push(() => { const pos = input.selectionStart; input.setSelectionRange(pos, pos); }); }
           else if (match[13]) { deletesSelection = true; }
+          else if (match[14]) { effects.push(() => document.execCommand("undo", false)); }
+          else if (match[15]) { effects.push(() => document.execCommand("redo", false)); }
 
           processedText += sub;
+          replacements.push({ start: match.index, end: match.index + match[0].length, sub });
           lastIndex = regex.lastIndex;
-          lastReplacementEnd = processedText.length;
         }
 
-        const remaining = text.substring(lastIndex);
-        processedText += remaining;
-        if (remaining.trim()) hasRealText = true;
+        processedText += text.substring(lastIndex);
+        if (text.substring(lastIndex).trim()) hasRealText = true;
 
         return {
           processedText,
+          replacements,
           replaceSelection: hasRealText || hasTextOutput,
           effects,
           deletesSelection,
-          lastReplacementEnd,
         };
       }
 
-      function processInput(smartCursorMovement = false) {
-        const oldValue = input.value;
-        const { processedText, effects, lastReplacementEnd } = extractCommands(oldValue);
+      let isProcessing = false;
 
-        if (oldValue !== processedText) {
-          input.value = processedText;
-          if (smartCursorMovement && lastReplacementEnd !== -1) {
-            input.setSelectionRange(lastReplacementEnd, lastReplacementEnd);
+      function processInput(smartCursorMovement = false) {
+        const { replacements, effects } = extractCommands(input.value);
+
+        if (replacements.length) {
+          isProcessing = true;
+          // Apply replacements in reverse order so positions stay valid
+          for (let i = replacements.length - 1; i >= 0; i--) {
+            const { start, end, sub } = replacements[i];
+            input.setSelectionRange(start, end);
+            document.execCommand("insertText", false, sub);
           }
+          if (smartCursorMovement) {
+            // Place cursor after the last (lowest-index) replacement
+            const last = replacements[0];
+            const cursorPos = last.start + last.sub.length;
+            input.setSelectionRange(cursorPos, cursorPos);
+          }
+          isProcessing = false;
         }
         if (effects.length) {
           setTimeout(() => effects.forEach(fn => fn()), 0);
         }
       }
 
-      input.oninput = () => {
+      input.oninput = (e) => {
+        if (isProcessing) return;
+        if (e.inputType === "historyUndo" || e.inputType === "historyRedo") return;
         clearTimeout(inputTimeout);
         inputTimeout = setTimeout(processInput, 500);
       };
@@ -439,6 +453,7 @@
             }
           }
           if (finalTranscript) {
+            isProcessing = true;
             const { processedText, replaceSelection, effects, deletesSelection } =
               extractCommands(finalTranscript);
             const start = input.selectionStart;
@@ -447,19 +462,26 @@
 
             // Delete selected text first (before insertion changes positions)
             if (hasSelection && deletesSelection) {
-              input.setRangeText("", start, end, "end");
+              input.setSelectionRange(start, end);
+              document.execCommand("delete", false);
             }
 
             const insertPos = input.selectionStart;
             const insertEnd = input.selectionEnd;
 
             if (insertPos !== insertEnd && !replaceSelection) {
-              // Effect-only commands: append after selection, preserve it
-              input.setRangeText(processedText, insertEnd, insertEnd, "end");
-            } else {
-              // Real text or text-producing commands: replace selection
-              input.setRangeText(processedText, insertPos, insertEnd, "end");
+              // Effect-only commands: place cursor after selection, insert there
+              input.setSelectionRange(insertEnd, insertEnd);
+            } else if (insertPos !== insertEnd) {
+              // Real text or text-producing commands: select to replace
+              input.setSelectionRange(insertPos, insertEnd);
             }
+
+            if (processedText) {
+              document.execCommand("insertText", false, processedText);
+            }
+
+            isProcessing = false;
 
             if (effects.length) {
               setTimeout(() => effects.forEach(fn => fn()), 0);

@@ -237,6 +237,115 @@
         padding: 2px 6px;
         border-radius: 4px;
       }
+
+      #commands-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        padding: 0;
+        justify-content: center;
+        flex-shrink: 0;
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      #commands-btn:hover {
+        background: var(--hover-color);
+        border-color: var(--accent-color);
+      }
+
+      .commands-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 480px;
+        background: var(--bg-color);
+        border-left: 1px solid var(--border-color);
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        z-index: 10;
+        overflow-y: auto;
+        padding: 14px 16px;
+      }
+
+      .commands-panel.open {
+        transform: translateX(0);
+      }
+
+      .commands-panel h3 {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #80868b;
+        margin: 0 0 10px 0;
+      }
+
+      .commands-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 20px;
+      }
+
+      .commands-panel h4 {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent-color);
+        margin: 8px 0 4px 0;
+      }
+
+      .commands-panel h4:first-child {
+        margin-top: 0;
+      }
+
+      .commands-panel dl {
+        margin: 0;
+        font-size: 11.5px;
+        line-height: 1.5;
+      }
+
+      .commands-panel dt {
+        font-weight: 500;
+        color: var(--text-color);
+      }
+
+      .commands-panel dd {
+        margin: 0 0 4px 0;
+        color: #80868b;
+        font-size: 10.5px;
+      }
+
+      .commands-panel .close-panel {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: #80868b;
+        font-size: 18px;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+      .commands-panel .close-panel:hover {
+        background: var(--hover-color);
+        color: var(--text-color);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .commands-panel {
+          box-shadow: -2px 0 8px rgba(0, 0, 0, 0.4);
+        }
+      }
     </style>
   </head>
   <body>
@@ -249,6 +358,45 @@
       ></textarea>
       <div class="hint">
         <b>Ctrl+R</b> to toggle STT &nbsp;•&nbsp; <b>Enter</b> to send &nbsp;•&nbsp; <b>Shift+Enter</b> for new line
+      </div>
+      <div class="commands-panel" id="commands-panel">
+        <button class="close-panel" id="close-panel" title="Close">&times;</button>
+        <h3>Voice Commands</h3>
+        <div class="commands-columns">
+          <div>
+            <h4>Punctuation</h4>
+            <dl>
+              <dt>insert comma</dt><dd>Inserts <b>,</b></dd>
+              <dt>insert period</dt><dd>Inserts <b>.</b></dd>
+              <dt>insert question mark</dt><dd>Inserts <b>?</b></dd>
+              <dt>insert exclamation mark</dt><dd>Inserts <b>!</b></dd>
+              <dt>insert tab</dt><dd>Inserts a tab character</dd>
+            </dl>
+            <h4>Formatting</h4>
+            <dl>
+              <dt>new paragraph</dt><dd>Ends sentence, starts new paragraph</dd>
+
+            </dl>
+          </div>
+          <div>
+            <h4>Navigation</h4>
+            <dl>
+              <dt>go to start</dt><dd>Moves cursor to beginning</dd>
+              <dt>go to end</dt><dd>Moves cursor to end</dd>
+            </dl>
+            <h4>Selection</h4>
+            <dl>
+              <dt>select all</dt><dd>Selects all text</dd>
+              <dt>unselect selection</dt><dd>Collapses selection, keeps text</dd>
+              <dt>delete selection</dt><dd>Deletes the selected text</dd>
+            </dl>
+            <h4>History</h4>
+            <dl>
+              <dt>undo it</dt><dd>Undoes last action</dd>
+              <dt>redo it</dt><dd>Redoes last undone action</dd>
+            </dl>
+          </div>
+        </div>
       </div>
       <div class="bottom-bar">
         <div class="status-area">
@@ -266,6 +414,11 @@
               />
             </svg>
           </button>
+          <button
+            id="commands-btn"
+            title="Voice commands cheat sheet"
+            tabindex="-1"
+          >🗣️</button>
           <div id="status">Listening...</div>
         </div>
         <div class="actions">
@@ -280,8 +433,16 @@
       const sendBtn = document.getElementById("send-btn");
       const cancelBtn = document.getElementById("cancel-btn");
       const dictateBtn = document.getElementById("dictate-btn");
+      const commandsBtn = document.getElementById("commands-btn");
+      const commandsPanel = document.getElementById("commands-panel");
+      const closePanel = document.getElementById("close-panel");
       const status = document.getElementById("status");
       const container = document.querySelector(".container");
+
+      commandsBtn.onmousedown = (e) => e.preventDefault();
+      commandsBtn.onclick = () => commandsPanel.classList.toggle("open");
+      closePanel.onmousedown = (e) => e.preventDefault();
+      closePanel.onclick = () => commandsPanel.classList.remove("open");
 
       let isRecording = false;
       let toggleDictation = () => {};
@@ -308,7 +469,9 @@
           submit();
         }
         if (e.key === "Escape") {
-          if (isRecording) {
+          if (commandsPanel.classList.contains("open")) {
+            commandsPanel.classList.remove("open");
+          } else if (isRecording) {
             toggleDictation();
           } else {
             cancel();

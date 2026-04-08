@@ -444,6 +444,16 @@
       closePanel.onmousedown = (e) => e.preventDefault();
       closePanel.onclick = () => commandsPanel.classList.remove("open");
 
+      document.addEventListener("mousedown", (e) => {
+        if (
+          commandsPanel.classList.contains("open") &&
+          !commandsPanel.contains(e.target) &&
+          !commandsBtn.contains(e.target)
+        ) {
+          commandsPanel.classList.remove("open");
+        }
+      });
+
       let isRecording = false;
       let toggleDictation = () => {};
 
@@ -482,7 +492,7 @@
       let inputTimeout;
 
       const COMMAND_REGEX =
-        /(\s+insert\s+comma)|(\s+insert\s+period)|(\s+insert\s+question\s+mark)|(\s+insert\s+exclamation\s+mark)|(\s+insert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s+new\s+paragraph)|(\s+select\s+all)|(\s+go\s+to\s+start)|(\s+go\s+to\s+end)|(\s+unselect\s+selection)|(\s+delete\s+selection)|(\s+undo\s+it)|(\s+redo\s+it)/gi;
+        /(\s*\binsert\s+comma)|(\s*\binsert\s+period)|(\s*\binsert\s+question\s+mark)|(\s*\binsert\s+exclamation\s+mark)|(\s*\binsert\s+tab)|(([,.?!])\s*new\s+paragraph)|(\s*\bnew\s+paragraph)|(\s*\bselect\s+all)|(\s*\bgo\s+to\s+start)|(\s*\bgo\s+to\s+end)|(\s*\bunselect\s+selection)|(\s*\bdelete\s+selection)|(\s*\bundo\s+it)|(\s*\bredo\s+it)/gi;
 
       function extractCommands(text) {
         const regex = new RegExp(COMMAND_REGEX.source, COMMAND_REGEX.flags);

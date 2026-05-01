@@ -9,10 +9,11 @@
   "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "@types/node": "^25.5.0"
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@google/adk": "^0.3.0",
+    "@google/adk": "^0.1.2",
     "chrome-launcher": "^1.2.1",
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",

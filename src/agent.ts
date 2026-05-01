@@ -264,15 +264,59 @@ async function typeMultilineTextInPromptBox(page: Page, promptBox: ElementHandle
     let lastToolIndex: number | undefined = -1;
     const model = process.env.MODEL!;
 
+    const searchAgent = new LlmAgent({
+        name: 'search_specialist',
+        model: model,
+        description: 'Specialist in searching the web.',
+        instruction: 'You are a search specialist. Use the google_search tool to find accurate and up-to-date information as requested by the user.',
+        tools: [GOOGLE_SEARCH]
+    });
+
+    const webSearchTool = new FunctionTool({
+        name: 'web_search',
+        description: 'Searches the web for information using a specialized search agent.',
+        parameters: z.object({
+            query: z.string().describe("The search query.")
+        }),
+        execute: async ({ query }) => {
+            const searchRunner = new InMemoryRunner({
+                agent: searchAgent,
+                appName: 'search_specialist'
+            });
+            const searchSessionId = `${sessionId}-search`;
+            await searchRunner.sessionService.createSession({
+                appName: 'search_specialist',
+                userId,
+                sessionId: searchSessionId
+            });
+
+            const events = searchRunner.runAsync({
+                userId,
+                sessionId: searchSessionId,
+                newMessage: {
+                    role: 'user',
+                    parts: [{ text: query }]
+                }
+            });
+
+            let response = "";
+            for await (const event of events) {
+                if (event.content && event.content.parts) {
+                    response += event.content.parts.map(p => p.text || '').join('');
+                }
+            }
+            return { result: response };
+        }
+    });
+
     const rootAgent = new LlmAgent({
         name: 'sidekick',
         model: model,
         description: 'Acts as a AI sidekick to shell.',
         instruction: await fs.readFile(path.resolve(PWD, '..', 'ai_sidekick.md'), 'utf-8'),
-        tools: [bash, GOOGLE_SEARCH, read_file, speak, write_file],
+        tools: [bash, webSearchTool, read_file, speak, write_file],
         generateContentConfig: {
             toolConfig: {
-                includeServerSideToolInvocations: true
             }
         }
     });
